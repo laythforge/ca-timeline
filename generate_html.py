@@ -3,10 +3,13 @@
 STEP 2: Generate the complete Central Asia interactive timeline map HTML.
 Reads geodata.json and embeds it. ALL writing via Python file I/O.
 """
+import json
+import os
+=======
 import json, os
-
-GEODATA_PATH = "/home/user/geodata.json"
-OUTPUT_PATH = "/home/user/central-asia-map.html"
+ROOT_DIR = os.path.dirname(__file__)
+GEODATA_PATH = os.path.join(ROOT_DIR, "geodata.json")
+OUTPUT_PATH = os.path.join(ROOT_DIR, "central-asia-map.html")
 
 with open(GEODATA_PATH) as f:
     geodata_raw = f.read()

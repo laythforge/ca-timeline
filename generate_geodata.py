@@ -9,8 +9,9 @@ from shapely.geometry import shape, box, mapping, Polygon, MultiPolygon
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-COUNTRIES_DIR = "/home/user/ca-timeline/node_modules/world-geojson/countries"
-OUTPUT_PATH = "/home/user/geodata.json"
+ROOT_DIR = os.path.dirname(__file__)
+COUNTRIES_DIR = os.path.join(ROOT_DIR, "node_modules", "world-geojson", "countries")
+OUTPUT_PATH = os.path.join(ROOT_DIR, "geodata.json")
 
 CA_COUNTRIES = ["kazakhstan", "uzbekistan", "turkmenistan", "kyrgyzstan", "tajikistan"]
 CA_CODES = {"kazakhstan": "KZ", "uzbekistan": "UZ", "turkmenistan": "TM",
