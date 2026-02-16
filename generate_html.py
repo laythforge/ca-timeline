@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 """
-STEP 2: Generate the full Central Asia interactive timeline map HTML.
-Reads geodata.json and embeds it into the HTML file.
-All file writing done via Python file I/O.
+STEP 2: Generate the complete Central Asia interactive timeline map HTML.
+Reads geodata.json and embeds it. ALL writing via Python file I/O.
 """
-import json
+import json, os
 
 GEODATA_PATH = "/home/user/geodata.json"
 OUTPUT_PATH = "/home/user/central-asia-map.html"
 
-# Read geodata
 with open(GEODATA_PATH) as f:
-    geodata_content = f.read()
+    geodata_raw = f.read()
 
-html = '''<!DOCTYPE html>
+# Build HTML as a Python string
+html = r'''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Central Asia — Interactive Timeline Map</title>
+<title>Central Asia — Historical Timeline Map</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -40,7 +39,6 @@ html,body{height:100%;overflow:hidden;background:#0d1117;color:var(--text-primar
 body{font-family:var(--font-sans)}
 #map{width:100%;height:100%;z-index:1}
 
-/* Glassmorphism mixin */
 .glass{
   background:var(--glass-bg);
   backdrop-filter:blur(var(--glass-blur));
@@ -58,17 +56,17 @@ body{font-family:var(--font-sans)}
 }
 #info-panel.visible{opacity:1;transform:translateX(0);pointer-events:auto}
 #info-panel h2{
-  font-family:var(--font-serif);font-size:1.5rem;font-weight:700;
-  margin-bottom:4px;color:var(--text-primary);
+  font-family:var(--font-serif);font-size:1.45rem;font-weight:700;
+  margin-bottom:2px;color:var(--text-primary);line-height:1.2;
 }
 #info-panel .subtitle{
-  font-size:0.8rem;color:var(--text-secondary);margin-bottom:14px;
-  font-style:italic;
+  font-size:0.78rem;color:var(--text-secondary);margin-bottom:14px;
+  font-style:italic;line-height:1.3;
 }
 #info-panel .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 #info-panel .stat-item{display:flex;flex-direction:column}
-#info-panel .stat-label{font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em}
-#info-panel .stat-value{font-size:1rem;font-weight:600;color:var(--text-primary);margin-top:2px}
+#info-panel .stat-label{font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em}
+#info-panel .stat-value{font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-top:2px}
 #info-panel .close-btn{
   position:absolute;top:10px;right:14px;background:none;border:none;
   color:var(--text-secondary);cursor:pointer;font-size:1.2rem;line-height:1;
@@ -78,73 +76,87 @@ body{font-family:var(--font-sans)}
 /* Legend */
 #legend{
   position:absolute;top:16px;left:16px;z-index:1000;
-  padding:16px 18px;max-height:calc(100vh - 120px);overflow-y:auto;
+  padding:14px 16px;max-height:calc(100vh - 140px);overflow-y:auto;
+  width:200px;
 }
 #legend h3{
-  font-family:var(--font-serif);font-size:1.1rem;font-weight:600;
+  font-family:var(--font-serif);font-size:1.05rem;font-weight:600;
   margin-bottom:10px;color:var(--text-primary);
 }
-#legend .legend-section{margin-bottom:10px}
+#legend .legend-section{margin-bottom:8px}
 #legend .legend-section-title{
-  font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;
-  color:var(--text-muted);margin-bottom:6px;
+  font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;
+  color:var(--text-muted);margin-bottom:5px;font-weight:600;
 }
 .legend-item{
-  display:flex;align-items:center;gap:8px;padding:4px 6px;
+  display:flex;align-items:center;gap:8px;padding:3px 6px;
   border-radius:6px;cursor:pointer;transition:background 0.2s;
-  font-size:0.82rem;color:var(--text-secondary);
+  font-size:0.78rem;color:var(--text-secondary);
 }
 .legend-item:hover{background:rgba(255,255,255,0.06);color:var(--text-primary)}
 .legend-swatch{
-  width:14px;height:14px;border-radius:3px;flex-shrink:0;
+  width:13px;height:13px;border-radius:3px;flex-shrink:0;
   border:1px solid rgba(255,255,255,0.12);
 }
 
 /* Timeline */
 #timeline{
   position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:1000;
-  padding:16px 28px 20px;width:520px;max-width:calc(100vw - 32px);
+  padding:18px 30px 22px;width:500px;max-width:calc(100vw - 32px);
   text-align:center;
 }
-#timeline h4{
-  font-family:var(--font-serif);font-size:0.95rem;font-weight:600;
-  margin-bottom:10px;color:var(--text-primary);
+#timeline-year{
+  font-family:var(--font-serif);font-size:2rem;font-weight:700;
+  color:var(--accent);line-height:1;margin-bottom:2px;
 }
-#timeline-slider{
-  -webkit-appearance:none;appearance:none;width:100%;height:6px;
-  border-radius:3px;background:rgba(255,255,255,0.08);outline:none;
-  cursor:pointer;
+#timeline-era{
+  font-size:0.78rem;color:var(--text-secondary);margin-bottom:16px;
+  font-style:italic;
 }
-#timeline-slider::-webkit-slider-thumb{
-  -webkit-appearance:none;appearance:none;width:20px;height:20px;
-  border-radius:50%;background:var(--accent);cursor:pointer;
-  border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);
-  transition:transform 0.15s;
+#timeline-track{
+  position:relative;width:100%;height:40px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 6px;
 }
-#timeline-slider::-webkit-slider-thumb:hover{transform:scale(1.2)}
-#timeline-slider::-moz-range-thumb{
-  width:20px;height:20px;border-radius:50%;background:var(--accent);
-  cursor:pointer;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);
+#timeline-line{
+  position:absolute;top:50%;left:6px;right:6px;height:3px;
+  background:rgba(255,255,255,0.08);border-radius:2px;transform:translateY(-50%);
+}
+#timeline-fill{
+  position:absolute;top:50%;left:6px;height:3px;
+  background:var(--accent);border-radius:2px;transform:translateY(-50%);
+  transition:width 0.4s ease;
+}
+.timeline-dot{
+  position:relative;z-index:2;width:14px;height:14px;
+  border-radius:50%;background:rgba(255,255,255,0.12);
+  border:2px solid rgba(255,255,255,0.2);
+  cursor:pointer;transition:all 0.3s ease;
+  display:flex;align-items:center;justify-content:center;
+}
+.timeline-dot:hover{
+  background:rgba(129,178,154,0.3);border-color:var(--accent);
+  transform:scale(1.2);
+}
+.timeline-dot.active{
+  width:18px;height:18px;
+  background:var(--accent);border-color:#fff;
+  box-shadow:0 0 12px rgba(129,178,154,0.5);
 }
 #timeline-labels{
-  display:flex;justify-content:space-between;margin-top:8px;
-  font-size:0.72rem;color:var(--text-muted);
+  display:flex;justify-content:space-between;
+  margin-top:4px;padding:0 2px;
 }
-#timeline-year{
-  font-family:var(--font-serif);font-size:1.6rem;font-weight:700;
-  color:var(--accent);margin-bottom:2px;
+#timeline-labels span{
+  font-size:0.68rem;color:var(--text-muted);
+  width:50px;text-align:center;
+  font-family:var(--font-sans);font-weight:500;
 }
-#timeline-era{font-size:0.75rem;color:var(--text-secondary);margin-bottom:10px}
-#timeline-tooltip{
-  font-size:0.7rem;color:#F2CC8F;margin-top:6px;
-  opacity:0;transition:opacity 0.3s;
-}
-#timeline-tooltip.visible{opacity:1}
 
 /* Home button */
 #home-btn{
-  position:absolute;top:80px;left:62px;z-index:1000;
-  width:34px;height:34px;border-radius:6px;
+  position:absolute;top:16px;left:224px;z-index:1000;
+  width:34px;height:34px;border-radius:8px;
   background:var(--glass-bg);backdrop-filter:blur(var(--glass-blur));
   border:1px solid var(--glass-border);
   color:var(--text-secondary);cursor:pointer;
@@ -156,30 +168,36 @@ body{font-family:var(--font-sans)}
 /* Water labels */
 .water-label{
   font-family:var(--font-serif);font-style:italic;
-  color:rgba(100,160,210,0.55);font-weight:400;
+  color:rgba(100,160,210,0.5);font-weight:400;
   white-space:nowrap;pointer-events:none;
 }
 .water-label-lg{font-size:13px;letter-spacing:0.15em}
 .water-label-sm{font-size:11px;letter-spacing:0.1em}
 
-/* Country labels on map */
-.country-label{
+/* Country/entity labels on map */
+.entity-label{
   font-family:var(--font-serif);font-weight:700;
   white-space:nowrap;pointer-events:none;text-align:center;
+  text-transform:uppercase;letter-spacing:3px;
+  text-shadow:0 1px 6px rgba(0,0,0,0.8),0 0 20px rgba(0,0,0,0.5);
+  transition:opacity 0.4s ease;
 }
-.country-label-ca{font-size:13px;color:rgba(230,237,243,0.8);text-shadow:0 1px 4px rgba(0,0,0,0.7)}
-.country-label-neighbor{font-size:11px;color:rgba(139,148,158,0.6)}
-.country-label .sub{
+.entity-label-ca{font-size:12px;color:rgba(230,237,243,0.82)}
+.entity-label-neighbor{
+  font-size:10px;color:#6b7280;font-style:italic;
+  letter-spacing:4px;font-weight:400;text-transform:uppercase;
+}
+.entity-label .sub{
   display:block;font-family:var(--font-sans);font-weight:400;
-  font-size:9px;color:rgba(139,148,158,0.6);margin-top:1px;
-  font-style:italic;
+  font-size:8.5px;color:rgba(139,148,158,0.7);margin-top:2px;
+  font-style:italic;text-transform:none;letter-spacing:0.5px;
 }
 
 /* City markers */
-.city-marker{pointer-events:none;text-align:center}
+.city-marker{pointer-events:none;text-align:center;transition:opacity 0.35s ease}
 .city-dot{
-  width:6px;height:6px;border-radius:50%;
-  background:rgba(230,237,243,0.85);border:1px solid rgba(0,0,0,0.4);
+  width:5px;height:5px;border-radius:50%;
+  background:rgba(230,237,243,0.8);border:1px solid rgba(0,0,0,0.4);
   margin:0 auto 2px;
 }
 .city-dot.capital{
@@ -189,20 +207,23 @@ body{font-family:var(--font-sans)}
 }
 .city-name{
   font-family:var(--font-sans);font-size:10px;
-  color:rgba(230,237,243,0.75);white-space:nowrap;
-  text-shadow:0 1px 3px rgba(0,0,0,0.8);
+  color:rgba(230,237,243,0.7);white-space:nowrap;
+  text-shadow:0 1px 3px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.6);
 }
 .city-name.capital-name{font-weight:600;font-size:11px;color:rgba(242,204,143,0.9)}
 
 /* Leaflet overrides */
 .leaflet-control-zoom{display:none}
 .leaflet-control-scale-line{
-  background:var(--glass-bg)!important;
+  background:rgba(13,17,23,0.8)!important;
   border-color:rgba(255,255,255,0.15)!important;
   color:var(--text-secondary)!important;
   font-family:var(--font-sans)!important;font-size:10px!important;
   backdrop-filter:blur(8px);
 }
+
+/* SVG overlay pane transition */
+.leaflet-overlay-pane{transition:opacity 0.35s ease}
 </style>
 </head>
 <body>
@@ -216,16 +237,16 @@ body{font-family:var(--font-sans)}
   <div class="stats">
     <div class="stat-item"><span class="stat-label">Population</span><span class="stat-value" id="info-pop"></span></div>
     <div class="stat-item"><span class="stat-label">Area</span><span class="stat-value" id="info-area"></span></div>
-    <div class="stat-item"><span class="stat-label">GDP</span><span class="stat-value" id="info-gdp"></span></div>
+    <div class="stat-item"><span class="stat-label">GDP PPP</span><span class="stat-value" id="info-gdp"></span></div>
     <div class="stat-item"><span class="stat-label">Currency</span><span class="stat-value" id="info-currency"></span></div>
   </div>
 </div>
 
 <!-- Legend -->
 <div id="legend" class="glass">
-  <h3>Central Asia</h3>
+  <h3 id="legend-title">Central Asia</h3>
   <div class="legend-section">
-    <div class="legend-section-title">CA Countries</div>
+    <div class="legend-section-title" id="legend-ca-title">Entities</div>
     <div id="legend-ca"></div>
   </div>
   <div class="legend-section">
@@ -238,210 +259,462 @@ body{font-family:var(--font-sans)}
 <div id="timeline" class="glass">
   <div id="timeline-year">2024</div>
   <div id="timeline-era">Modern Era</div>
-  <input type="range" id="timeline-slider" min="1800" max="2024" value="2024" step="1">
-  <div id="timeline-labels"><span>1800</span><span>1900</span><span>1991</span><span>2024</span></div>
-  <div id="timeline-tooltip">Coming soon — only 1991 &amp; 2024 available</div>
+  <div id="timeline-track">
+    <div id="timeline-line"></div>
+    <div id="timeline-fill"></div>
+  </div>
+  <div id="timeline-labels"></div>
 </div>
 
 <!-- Home Button -->
 <button id="home-btn" title="Reset view">&#8962;</button>
 
 <script>
-// ========== GEODATA ==========
-const GEO = ''' + geodata_content + ''';
+// ===== GEODATA (injected) =====
+const GEODATA = ''' + geodata_raw + r''';
 
-// ========== CONFIG ==========
-const CA_COLORS = {KZ:'#E07A5F',UZ:'#81B29A',TM:'#F2CC8F',KG:'#3D85C6',TJ:'#9B72CF'};
-const NEIGHBOR_COLORS = {RU:'#2d3748',CN:'#1a365d',IR:'#4a3728',AF:'#3d2c4a',PK:'#2d4a3e',MN:'#3d3a28',AZ:'#2a3d4a',GE:'#3a2d3d'};
-const ALL_COLORS = Object.assign({}, CA_COLORS, NEIGHBOR_COLORS);
-
-const DEFAULT_CENTER = [42, 64];
-const DEFAULT_ZOOM = 5;
-const BOUNDS = L.latLngBounds([30,44],[56,90]);
-
-// ========== COUNTRY DATA ==========
-const COUNTRY_DATA = {
-  KZ: {
-    name: 'Kazakhstan',
-    center: [48.0, 67.0],
-    2024: {pop:'19.8M', area:'2,724,900 km\\u00b2', gdp:'$259.3B', currency:'Tenge (KZT)'},
-    1991: {pop:'16.5M', area:'2,724,900 km\\u00b2', gdp:'$25.0B', currency:'Soviet Ruble'},
-    independence:'Dec 16, 1991'
-  },
-  UZ: {
-    name: 'Uzbekistan',
-    center: [41.3, 64.5],
-    2024: {pop:'36.0M', area:'448,978 km\\u00b2', gdp:'$90.4B', currency:'Som (UZS)'},
-    1991: {pop:'20.7M', area:'448,978 km\\u00b2', gdp:'$14.0B', currency:'Soviet Ruble'},
-    independence:'Sep 1, 1991'
-  },
-  TM: {
-    name: 'Turkmenistan',
-    center: [39.0, 59.5],
-    2024: {pop:'6.5M', area:'488,100 km\\u00b2', gdp:'$59.9B', currency:'Manat (TMT)'},
-    1991: {pop:'3.7M', area:'488,100 km\\u00b2', gdp:'$6.0B', currency:'Soviet Ruble'},
-    independence:'Oct 27, 1991'
-  },
-  KG: {
-    name: 'Kyrgyzstan',
-    center: [41.5, 74.5],
-    2024: {pop:'7.1M', area:'199,951 km\\u00b2', gdp:'$12.3B', currency:'Som (KGS)'},
-    1991: {pop:'4.4M', area:'199,951 km\\u00b2', gdp:'$2.7B', currency:'Soviet Ruble'},
-    independence:'Aug 31, 1991'
-  },
-  TJ: {
-    name: 'Tajikistan',
-    center: [38.8, 70.8],
-    2024: {pop:'10.1M', area:'143,100 km\\u00b2', gdp:'$12.0B', currency:'Somoni (TJS)'},
-    1991: {pop:'5.3M', area:'143,100 km\\u00b2', gdp:'$2.5B', currency:'Soviet Ruble'},
-    independence:'Sep 9, 1991'
-  },
-  RU: {name:'Russia', center:[52,68]},
-  CN: {name:'China', center:[40,82]},
-  IR: {name:'Iran', center:[35,55]},
-  AF: {name:'Afghanistan', center:[35,67]},
-  PK: {name:'Pakistan', center:[33,70]},
-  MN: {name:'Mongolia', center:[48,88]},
-  AZ: {name:'Azerbaijan', center:[40.5,48]},
-  GE: {name:'Georgia', center:[42,44.5]}
+// ===== ERAS =====
+const ERAS = [1900, 1920, 1924, 1936, 1991, 2024];
+const ERA_NAMES = {
+  1900: 'Russian Imperial Era',
+  1920: 'Soviet Takeover',
+  1924: 'National Delimitation',
+  1936: 'Full SSR Status',
+  1991: 'Independence',
+  2024: 'Modern Era'
 };
 
-// ========== CITIES ==========
-const CITIES = [
-  // Capitals
-  {name:'Astana', name1991:'Tselinograd', lat:51.16,lng:71.43, country:'KZ', tier:'capital'},
-  {name:'Tashkent', lat:41.30,lng:69.28, country:'UZ', tier:'capital'},
-  {name:'Ashgabat', lat:37.95,lng:58.38, country:'TM', tier:'capital'},
-  {name:'Bishkek', name1991:'Frunze', lat:42.87,lng:74.59, country:'KG', tier:'capital'},
-  {name:'Dushanbe', lat:38.56,lng:68.77, country:'TJ', tier:'capital'},
-  // Tier 1 — z5
-  {name:'Almaty', lat:43.24,lng:76.95, country:'KZ', tier:1},
-  {name:'Samarkand', lat:39.65,lng:66.96, country:'UZ', tier:1},
-  {name:'Bukhara', lat:39.77,lng:64.42, country:'UZ', tier:1},
-  {name:'Shymkent', lat:42.32,lng:69.60, country:'KZ', tier:1},
-  {name:'Namangan', lat:41.00,lng:71.67, country:'UZ', tier:1},
-  // Tier 2 — z6
-  {name:'Karaganda', lat:49.80,lng:73.10, country:'KZ', tier:2},
-  {name:'Aktobe', lat:50.30,lng:57.21, country:'KZ', tier:2},
-  {name:'Khujand', name1991:'Leninabad', lat:40.28,lng:69.63, country:'TJ', tier:2},
-  {name:'Osh', lat:40.53,lng:72.80, country:'KG', tier:2},
-  {name:'Nukus', lat:42.46,lng:59.60, country:'UZ', tier:2},
-  {name:'Fergana', lat:40.38,lng:71.79, country:'UZ', tier:2},
-  {name:'Mary', lat:37.60,lng:61.83, country:'TM', tier:2},
-  // Tier 3 — z7
-  {name:'Atyrau', name1991:'Guryev', lat:47.12,lng:51.92, country:'KZ', tier:3},
-  {name:'Semey', name1991:'Semipalatinsk', lat:50.41,lng:80.23, country:'KZ', tier:3},
-  {name:'Kostanay', lat:53.21,lng:63.63, country:'KZ', tier:3},
-  {name:'Pavlodar', lat:52.29,lng:76.95, country:'KZ', tier:3},
-  {name:'Turkmenabat', name1991:'Chardzhou', lat:39.07,lng:63.58, country:'TM', tier:3},
-  {name:'Andijan', lat:40.78,lng:72.34, country:'UZ', tier:3},
-  {name:'Navoi', lat:40.10,lng:65.38, country:'UZ', tier:3},
-  {name:'Urgench', lat:41.55,lng:60.63, country:'UZ', tier:3},
-  {name:'Kulob', lat:38.54,lng:69.78, country:'TJ', tier:3},
-  {name:'Karakol', lat:42.49,lng:78.39, country:'KG', tier:3},
-  // Tier 4 — z8
-  {name:'Taraz', lat:42.90,lng:71.37, country:'KZ', tier:4},
-  {name:'Oral', lat:51.23,lng:51.37, country:'KZ', tier:4},
-  {name:'Aktau', lat:43.65,lng:51.15, country:'KZ', tier:4},
-  {name:'Petropavl', lat:54.87,lng:69.15, country:'KZ', tier:4},
-  {name:'Kyzylorda', lat:44.85,lng:65.51, country:'KZ', tier:4},
-  {name:'Turkestan', lat:43.30,lng:68.25, country:'KZ', tier:4},
-  {name:'Termez', lat:37.22,lng:67.28, country:'UZ', tier:4},
-  {name:'Karshi', lat:38.86,lng:65.80, country:'UZ', tier:4},
-  {name:'Jizzakh', lat:40.12,lng:67.84, country:'UZ', tier:4},
-  {name:'Dashoguz', lat:41.84,lng:59.97, country:'TM', tier:4},
-  {name:'Balkanabat', lat:39.51,lng:54.37, country:'TM', tier:4},
-  {name:'Turkmenbashi', lat:40.05,lng:52.97, country:'TM', tier:4},
-  {name:'Jalal-Abad', lat:40.93,lng:73.00, country:'KG', tier:4},
-  {name:'Istaravshan', lat:39.91,lng:69.00, country:'TJ', tier:4},
-  {name:'Bokhtar', lat:37.84,lng:68.78, country:'TJ', tier:4}
-];
+// ===== COLORS =====
+const NEIGHBOR_STYLES = {
+  RU:{fill:'#2d3748',name:'Russia'},
+  CN:{fill:'#1a365d',name:'China'},
+  IR:{fill:'#3d3028',name:'Iran'},
+  AF:{fill:'#3d2c4a',name:'Afghanistan'},
+  PK:{fill:'#2a3a2e',name:'Pakistan'},
+  MN:{fill:'#2d3340',name:'Mongolia'},
+  AZ:{fill:'#2a3340',name:'Azerbaijan'},
+  GE:{fill:'#2e2a34',name:'Georgia'}
+};
 
-// ========== WATER LABELS ==========
+// Modern CA colors (used for 1936/1991/2024)
+const CA_COLORS = {KZ:'#E07A5F',UZ:'#81B29A',TM:'#F2CC8F',KG:'#3D85C6',TJ:'#9B72CF'};
+
+// Neighbor label positions (visual center within clipped bounds)
+const NEIGHBOR_LABEL_POS = {
+  RU:[52.5,68], CN:[40,82], IR:[34,55], AF:[34.5,67],
+  PK:[32,69], MN:[48,88], AZ:[40.5,48.5], GE:[42,44.3]
+};
+
+// ===== ERA ENTITY CONFIG =====
+// For 1936/1991/2024 — define what entities show on the map
+const ERA_ENTITIES = {
+  1936: {
+    KZ_SSR:{code:'KZ',color:'#E07A5F',name:'Kazakh SSR',subtitle:'Union Republic since 1936',center:[48,67]},
+    UZ_SSR:{code:'UZ',color:'#81B29A',name:'Uzbek SSR',subtitle:'Union Republic since 1924',center:[41.3,64.5]},
+    TM_SSR:{code:'TM',color:'#F2CC8F',name:'Turkmen SSR',subtitle:'Union Republic since 1924',center:[39,59.5]},
+    KG_SSR:{code:'KG',color:'#3D85C6',name:'Kirghiz SSR',subtitle:'Union Republic since 1936',center:[41.5,74.5]},
+    TJ_SSR:{code:'TJ',color:'#9B72CF',name:'Tajik SSR',subtitle:'Union Republic since 1929',center:[38.8,70.8]}
+  },
+  1991: {
+    KZ:{code:'KZ',color:'#E07A5F',name:'Republic of Kazakhstan',subtitle:'Independence: Dec 16, 1991',center:[48,67]},
+    UZ:{code:'UZ',color:'#81B29A',name:'Republic of Uzbekistan',subtitle:'Independence: Sep 1, 1991',center:[41.3,64.5]},
+    TM:{code:'TM',color:'#F2CC8F',name:'Republic of Turkmenistan',subtitle:'Independence: Oct 27, 1991',center:[39,59.5]},
+    KG:{code:'KG',color:'#3D85C6',name:'Republic of Kyrgyzstan',subtitle:'Independence: Aug 31, 1991',center:[41.5,74.5]},
+    TJ:{code:'TJ',color:'#9B72CF',name:'Republic of Tajikistan',subtitle:'Independence: Sep 9, 1991',center:[38.8,70.8]}
+  },
+  2024: {
+    KZ:{code:'KZ',color:'#E07A5F',name:'Kazakhstan',subtitle:'',center:[48,67]},
+    UZ:{code:'UZ',color:'#81B29A',name:'Uzbekistan',subtitle:'',center:[41.3,64.5]},
+    TM:{code:'TM',color:'#F2CC8F',name:'Turkmenistan',subtitle:'',center:[39,59.5]},
+    KG:{code:'KG',color:'#3D85C6',name:'Kyrgyzstan',subtitle:'',center:[41.5,74.5]},
+    TJ:{code:'TJ',color:'#9B72CF',name:'Tajikistan',subtitle:'',center:[38.8,70.8]}
+  }
+};
+
+// Historical entity label centers (1900/1920/1924 come from geodata keys)
+const HIST_LABEL_POS = {
+  // 1900
+  TURKESTAN:[40.5,66], BUKHARA:[38.8,67], KHIVA:[42,59.5], STEPPE:[49,62],
+  // 1920
+  TURKESTAN_ASSR:[40.5,66], BUKHARA_PSR:[38.8,67], KHOREZM_PSR:[42,59.5], KIRGHIZ_ASSR:[49,62],
+  // 1924
+  UZ_SSR:[40,67], TM_SSR:[39,59.5], KARA_KIRGHIZ:[41.5,74.5], KZ_ASSR:[48,67]
+};
+
+// ===== INFO PANEL DATA PER ERA =====
+const INFO_DATA = {
+  1936: {
+    KZ_SSR:{pop:'6.1M',area:'2,724,900 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    UZ_SSR:{pop:'6.3M',area:'448,978 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    TM_SSR:{pop:'1.3M',area:'491,210 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    KG_SSR:{pop:'1.5M',area:'199,951 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    TJ_SSR:{pop:'1.5M',area:'143,100 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'}
+  },
+  1991: {
+    KZ:{pop:'16.5M',area:'2,724,900 km\u00b2',gdp:'~$120B',currency:'Soviet Ruble \u2192 Tenge (1993)'},
+    UZ:{pop:'20.7M',area:'448,978 km\u00b2',gdp:'~$60B',currency:"Soviet Ruble \u2192 So'm (1993)"},
+    TM:{pop:'3.7M',area:'491,210 km\u00b2',gdp:'~$18B',currency:'Soviet Ruble \u2192 Manat (1993)'},
+    KG:{pop:'4.4M',area:'199,951 km\u00b2',gdp:'~$12B',currency:'Soviet Ruble \u2192 Som (1993)'},
+    TJ:{pop:'5.3M',area:'143,100 km\u00b2',gdp:'~$8B',currency:'Soviet Ruble \u2192 Somoni (2000)'}
+  },
+  2024: {
+    KZ:{pop:'19.8M',area:'2,724,900 km\u00b2',gdp:'$604B',currency:'Tenge (\u20b8)'},
+    UZ:{pop:'36.0M',area:'448,978 km\u00b2',gdp:'$301B',currency:"So'm"},
+    TM:{pop:'6.5M',area:'491,210 km\u00b2',gdp:'$112B',currency:'Manat (m)'},
+    KG:{pop:'7.1M',area:'199,951 km\u00b2',gdp:'$43B',currency:'Som'},
+    TJ:{pop:'10.1M',area:'143,100 km\u00b2',gdp:'$46B',currency:'Somoni (SM)'}
+  },
+  1900: {
+    TURKESTAN:{pop:'~6M',area:'~1,707,000 km\u00b2',gdp:'\u2014',currency:'Russian Ruble'},
+    BUKHARA:{pop:'~2.5M',area:'~203,000 km\u00b2',gdp:'\u2014',currency:'Tanga (Bukharan)'},
+    KHIVA:{pop:'~800K',area:'~62,000 km\u00b2',gdp:'\u2014',currency:'Tilla (Khivan)'},
+    STEPPE:{pop:'~4M',area:'~2,400,000 km\u00b2',gdp:'\u2014',currency:'Russian Ruble'}
+  },
+  1920: {
+    TURKESTAN_ASSR:{pop:'~5.5M',area:'~1,707,000 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    BUKHARA_PSR:{pop:'~2M',area:'~203,000 km\u00b2',gdp:'\u2014',currency:'Bukharan Ruble'},
+    KHOREZM_PSR:{pop:'~600K',area:'~62,000 km\u00b2',gdp:'\u2014',currency:'Khorezmian Ruble'},
+    KIRGHIZ_ASSR:{pop:'~4.5M',area:'~2,400,000 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'}
+  },
+  1924: {
+    UZ_SSR:{pop:'~5M',area:'~590,000 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    TM_SSR:{pop:'~1M',area:'~491,000 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    KARA_KIRGHIZ:{pop:'~1M',area:'~199,000 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'},
+    KZ_ASSR:{pop:'~6M',area:'~2,724,000 km\u00b2',gdp:'\u2014',currency:'Soviet Ruble'}
+  }
+};
+
+// ===== COMPLETE CITY DATABASE =====
+const CITIES = {
+  tashkent:{lat:41.299,lng:69.240,
+    names:{1900:'Tashkent',1920:'Tashkent',1924:'Tashkent',1936:'Tashkent',1991:'Tashkent',2024:'Tashkent'},
+    tier:{1900:0,1920:0,1924:1,1936:0,1991:0,2024:0}},
+  almaty:{lat:43.238,lng:76.946,
+    names:{1900:'Verny',1920:'Verny',1924:'Alma-Ata',1936:'Alma-Ata',1991:'Almaty',2024:'Almaty'},
+    tier:{1900:1,1920:1,1924:1,1936:1,1991:1,2024:1}},
+  bishkek:{lat:42.874,lng:74.569,
+    names:{1900:'Pishpek',1920:'Pishpek',1924:'Pishpek',1936:'Frunze',1991:'Bishkek',2024:'Bishkek'},
+    tier:{1900:2,1920:2,1924:2,1936:0,1991:0,2024:0}},
+  dushanbe:{lat:38.560,lng:68.774,
+    names:{1900:'Dyushambe',1920:'Dyushambe',1924:'Dyushambe',1936:'Stalinabad',1991:'Dushanbe',2024:'Dushanbe'},
+    tier:{1900:4,1920:4,1924:3,1936:0,1991:0,2024:0}},
+  astana:{lat:51.169,lng:71.449,
+    names:{1900:'Akmolinsk',1920:'Akmolinsk',1924:'Akmolinsk',1936:'Akmolinsk',1991:'Tselinograd',2024:'Astana'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:2,2024:0}},
+  ashgabat:{lat:37.960,lng:58.326,
+    names:{1900:'Ashkhabad',1920:'Poltoratsk',1924:'Ashkhabad',1936:'Ashkhabad',1991:'Ashgabat',2024:'Ashgabat'},
+    tier:{1900:1,1920:1,1924:0,1936:0,1991:0,2024:0}},
+  bukhara:{lat:39.768,lng:64.421,
+    names:{1900:'Bukhara',1920:'Bukhara',1924:'Bukhara',1936:'Bukhara',1991:'Bukhara',2024:'Bukhara'},
+    tier:{1900:0,1920:0,1924:1,1936:1,1991:1,2024:1}},
+  khiva:{lat:41.378,lng:60.364,
+    names:{1900:'Khiva',1920:'Khiva',1924:'Khiva',1936:'Khiva',1991:'Khiva',2024:'Khiva'},
+    tier:{1900:0,1920:0,1924:3,1936:3,1991:3,2024:3}},
+  samarkand:{lat:39.654,lng:66.960,
+    names:{1900:'Samarkand',1920:'Samarkand',1924:'Samarkand',1936:'Samarkand',1991:'Samarkand',2024:'Samarkand'},
+    tier:{1900:1,1920:1,1924:0,1936:1,1991:1,2024:1}},
+  khujand:{lat:40.282,lng:69.629,
+    names:{1900:'Khodjent',1920:'Khodjent',1924:'Khodjent',1936:'Leninabad',1991:'Khujand',2024:'Khujand'},
+    tier:{1900:2,1920:2,1924:2,1936:1,1991:1,2024:1}},
+  mary:{lat:37.594,lng:61.831,
+    names:{1900:'Merv',1920:'Merv',1924:'Mary',1936:'Mary',1991:'Mary',2024:'Mary'},
+    tier:{1900:2,1920:2,1924:2,1936:2,1991:2,2024:2}},
+  turkmenbashi:{lat:40.049,lng:52.960,
+    names:{1900:'Krasnovodsk',1920:'Krasnovodsk',1924:'Krasnovodsk',1936:'Krasnovodsk',1991:'Krasnovodsk',2024:'Turkmenbashi'},
+    tier:{1900:2,1920:2,1924:3,1936:3,1991:3,2024:3}},
+  atyrau:{lat:47.105,lng:51.876,
+    names:{1900:'Guryev',1920:'Guryev',1924:'Guryev',1936:'Guryev',1991:'Atyrau',2024:'Atyrau'},
+    tier:{1900:3,1920:3,1924:2,1936:2,1991:2,2024:2}},
+  semey:{lat:50.411,lng:80.228,
+    names:{1900:'Semipalatinsk',1920:'Semipalatinsk',1924:'Semipalatinsk',1936:'Semipalatinsk',1991:'Semipalatinsk',2024:'Semey'},
+    tier:{1900:2,1920:2,1924:3,1936:3,1991:3,2024:3}},
+  turkmenabat:{lat:39.073,lng:63.572,
+    names:{1900:'Chardzhou',1920:'Chardzhou',1924:'Chardzhou',1936:'Chardzhou',1991:'Chardzhou',2024:'Turkmenabat'},
+    tier:{1900:2,1920:2,1924:2,1936:2,1991:2,2024:2}},
+  nukus:{lat:42.462,lng:59.603,
+    names:{1900:'Nukus',1920:'Nukus',1924:'Nukus',1936:'Nukus',1991:'Nukus',2024:'Nukus'},
+    tier:{1900:3,1920:3,1924:2,1936:2,1991:2,2024:2}},
+  kokand:{lat:40.528,lng:70.943,
+    names:{1900:'Kokand',1920:'Kokand',1924:'Kokand',1936:'Kokand',1991:'Kokand',2024:'Kokand'},
+    tier:{1900:1,1920:2,1924:3,1936:3,1991:3,2024:3}},
+  namangan:{lat:41.000,lng:71.672,
+    names:{1900:'Namangan',1920:'Namangan',1924:'Namangan',1936:'Namangan',1991:'Namangan',2024:'Namangan'},
+    tier:{1900:2,1920:2,1924:2,1936:1,1991:1,2024:1}},
+  andijan:{lat:40.783,lng:72.344,
+    names:{1900:'Andijan',1920:'Andijan',1924:'Andijan',1936:'Andijan',1991:'Andijan',2024:'Andijan'},
+    tier:{1900:2,1920:2,1924:2,1936:2,1991:2,2024:2}},
+  fergana:{lat:40.384,lng:71.789,
+    names:{1900:'New Margilan',1920:'New Margilan',1924:'Fergana',1936:'Fergana',1991:'Fergana',2024:'Fergana'},
+    tier:{1900:2,1920:2,1924:2,1936:2,1991:2,2024:2}},
+  shymkent:{lat:42.315,lng:69.597,
+    names:{1900:'Chimkent',1920:'Chimkent',1924:'Chimkent',1936:'Chimkent',1991:'Shymkent',2024:'Shymkent'},
+    tier:{1900:2,1920:2,1924:1,1936:1,1991:1,2024:1}},
+  karaganda:{lat:49.802,lng:73.102,
+    names:{1900:'Karaganda',1920:'Karaganda',1924:'Karaganda',1936:'Karaganda',1991:'Karaganda',2024:'Karaganda'},
+    tier:{1900:4,1920:4,1924:3,1936:2,1991:2,2024:2}},
+  aktobe:{lat:50.300,lng:57.210,
+    names:{1900:'Aktyubinsk',1920:'Aktyubinsk',1924:'Aktyubinsk',1936:'Aktyubinsk',1991:'Aktobe',2024:'Aktobe'},
+    tier:{1900:3,1920:3,1924:3,1936:2,1991:2,2024:2}},
+  osh:{lat:40.530,lng:72.802,
+    names:{1900:'Osh',1920:'Osh',1924:'Osh',1936:'Osh',1991:'Osh',2024:'Osh'},
+    tier:{1900:2,1920:2,1924:2,1936:2,1991:2,2024:2}},
+  navoi:{lat:40.103,lng:65.379,
+    names:{1900:'Kermine',1920:'Kermine',1924:'Kermine',1936:'Kermine',1991:'Navoi',2024:'Navoi'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:3,2024:3}},
+  karshi:{lat:38.861,lng:65.798,
+    names:{1900:'Karshi',1920:'Karshi',1924:'Karshi',1936:'Karshi',1991:'Karshi',2024:'Karshi'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  urgench:{lat:41.551,lng:60.632,
+    names:{1900:'Urgench',1920:'Urgench',1924:'Urgench',1936:'Urgench',1991:'Urgench',2024:'Urgench'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  jizzakh:{lat:40.116,lng:67.842,
+    names:{1900:'Jizzakh',1920:'Jizzakh',1924:'Jizzakh',1936:'Jizzakh',1991:'Jizzakh',2024:'Jizzakh'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  termez:{lat:37.224,lng:67.278,
+    names:{1900:'Termez',1920:'Termez',1924:'Termez',1936:'Termez',1991:'Termez',2024:'Termez'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  jalalabad:{lat:40.933,lng:73.002,
+    names:{1900:'Jalal-Abad',1920:'Jalal-Abad',1924:'Jalal-Abad',1936:'Jalal-Abad',1991:'Jalal-Abad',2024:'Jalal-Abad'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  karakol:{lat:42.491,lng:78.390,
+    names:{1900:'Karakol',1920:'Karakol',1924:'Karakol',1936:'Przhevalsk',1991:'Karakol',2024:'Karakol'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  kulob:{lat:38.543,lng:69.784,
+    names:{1900:'Kulyab',1920:'Kulyab',1924:'Kulyab',1936:'Kulyab',1991:'Kulob',2024:'Kulob'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  bokhtar:{lat:37.836,lng:68.781,
+    names:{1900:'Kurgan-Tyube',1920:'Kurgan-Tyube',1924:'Kurgan-Tyube',1936:'Kurgan-Tyube',1991:'Kurgan-Tyube',2024:'Bokhtar'},
+    tier:{1900:4,1920:4,1924:4,1936:3,1991:3,2024:3}},
+  istaravshan:{lat:39.914,lng:69.004,
+    names:{1900:'Ura-Tyube',1920:'Ura-Tyube',1924:'Ura-Tyube',1936:'Ura-Tyube',1991:'Istaravshan',2024:'Istaravshan'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:4,2024:4}},
+  khorog:{lat:37.536,lng:71.513,
+    names:{1900:'Khorog',1920:'Khorog',1924:'Khorog',1936:'Khorog',1991:'Khorog',2024:'Khorog'},
+    tier:{1900:4,1920:4,1924:4,1936:3,1991:3,2024:3}},
+  panjakent:{lat:39.490,lng:67.608,
+    names:{1900:'Panjikent',1920:'Panjikent',1924:'Panjikent',1936:'Panjikent',1991:'Panjakent',2024:'Panjakent'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:4,2024:4}},
+  pavlodar:{lat:52.287,lng:76.954,
+    names:{1900:'Pavlodar',1920:'Pavlodar',1924:'Pavlodar',1936:'Pavlodar',1991:'Pavlodar',2024:'Pavlodar'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  kostanay:{lat:53.214,lng:63.632,
+    names:{1900:'Kostanay',1920:'Kostanay',1924:'Kostanay',1936:'Kostanay',1991:'Kostanay',2024:'Kostanay'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  oral:{lat:51.233,lng:51.366,
+    names:{1900:'Uralsk',1920:'Uralsk',1924:'Uralsk',1936:'Uralsk',1991:'Oral',2024:'Oral'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  petropavl:{lat:54.867,lng:69.149,
+    names:{1900:'Petropavlovsk',1920:'Petropavlovsk',1924:'Petropavlovsk',1936:'Petropavlovsk',1991:'Petropavl',2024:'Petropavl'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  kyzylorda:{lat:44.853,lng:65.509,
+    names:{1900:'Perovsk',1920:'Perovsk',1924:'Kzyl-Orda',1936:'Kzyl-Orda',1991:'Kyzylorda',2024:'Kyzylorda'},
+    tier:{1900:3,1920:3,1924:2,1936:2,1991:3,2024:3}},
+  taraz:{lat:42.900,lng:71.366,
+    names:{1900:'Aulie-Ata',1920:'Aulie-Ata',1924:'Aulie-Ata',1936:'Mirzoyan',1991:'Taraz',2024:'Taraz'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  aktau:{lat:43.650,lng:51.147,
+    names:{1900:'Fort Alexandrovsky',1920:'Fort Alexandrovsky',1924:'Fort Shevchenko',1936:'Fort Shevchenko',1991:'Aktau',2024:'Aktau'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:3,2024:3}},
+  turkestan:{lat:43.301,lng:68.252,
+    names:{1900:'Turkestan',1920:'Turkestan',1924:'Turkestan',1936:'Turkestan',1991:'Turkestan',2024:'Turkestan'},
+    tier:{1900:2,1920:2,1924:3,1936:4,1991:4,2024:4}},
+  ustkamenogorsk:{lat:49.948,lng:82.628,
+    names:{1900:'Ust-Kamenogorsk',1920:'Ust-Kamenogorsk',1924:'Ust-Kamenogorsk',1936:'Ust-Kamenogorsk',1991:'Ust-Kamenogorsk',2024:'Oskemen'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  dashoguz:{lat:41.836,lng:59.967,
+    names:{1900:'Dashkhovuz',1920:'Dashkhovuz',1924:'Dashkhovuz',1936:'Tashauz',1991:'Dashoguz',2024:'Dashoguz'},
+    tier:{1900:3,1920:3,1924:3,1936:3,1991:3,2024:3}},
+  balkanabat:{lat:39.510,lng:54.367,
+    names:{1900:'Jebel',1920:'Jebel',1924:'Nebit-Dag',1936:'Nebit-Dag',1991:'Balkanabat',2024:'Balkanabat'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:4,2024:4}},
+  naryn:{lat:41.429,lng:75.991,
+    names:{1900:'Naryn',1920:'Naryn',1924:'Naryn',1936:'Naryn',1991:'Naryn',2024:'Naryn'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:4,2024:4}},
+  talas:{lat:42.516,lng:72.243,
+    names:{1900:'Talas',1920:'Talas',1924:'Talas',1936:'Talas',1991:'Talas',2024:'Talas'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:4,2024:4}},
+  batken:{lat:40.063,lng:70.819,
+    names:{1900:'Batken',1920:'Batken',1924:'Batken',1936:'Batken',1991:'Batken',2024:'Batken'},
+    tier:{1900:4,1920:4,1924:4,1936:4,1991:4,2024:4}}
+};
+
+// ===== WATER LABELS =====
 const WATER_LABELS = [
-  {name:'Caspian Sea', lat:42.5,lng:50.5, cls:'water-label-lg'},
-  {name:'Aral Sea', lat:45.0,lng:59.5, cls:'water-label-sm'},
-  {name:'Lake Balkhash', lat:46.5,lng:74.5, cls:'water-label-sm'},
-  {name:'Issyk-Kul', lat:42.5,lng:77.2, cls:'water-label-sm'}
+  {name:'Caspian Sea',lat:42.0,lng:50.5,cls:'water-label-lg'},
+  {name:'Aral Sea',lat:45.0,lng:59.5,cls:'water-label-sm'},
+  {name:'Lake Balkhash',lat:46.5,lng:74.5,cls:'water-label-sm'},
+  {name:'Issyk-Kul',lat:42.45,lng:77.2,cls:'water-label-sm'}
 ];
 
-// ========== STATE ==========
-let currentYear = 2024;
-let geoLayer = null;
+// ===== STATE =====
+let currentEra = 2024;
+let caLayer = null;
+let neighborLayer = null;
+let entityLabels = [];
+let neighborLabels = [];
 let cityMarkers = [];
-let countryLabels = [];
-let highlightedCode = null;
+let highlightedKey = null;
 
-// ========== MAP INIT ==========
+// ===== MAP INIT =====
 const map = L.map('map', {
-  center: DEFAULT_CENTER,
-  zoom: DEFAULT_ZOOM,
-  maxBounds: BOUNDS,
+  center: [42.0, 64.0],
+  zoom: 5,
+  minZoom: 5,
+  maxZoom: 14,
+  maxBounds: L.latLngBounds(L.latLng(30, 44), L.latLng(56, 90)),
   maxBoundsViscosity: 1.0,
-  minZoom: 4,
-  maxZoom: 10,
   zoomControl: false,
-  preferCanvas: false,
   renderer: L.svg()
 });
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap &copy; CARTO',
-  subdomains: 'abcd',
-  maxZoom: 19
+  attribution:'&copy; OSM &copy; CARTO',
+  subdomains:'abcd',maxZoom:19
 }).addTo(map);
 
-L.control.scale({position:'bottomleft', imperial:false}).addTo(map);
+L.control.scale({position:'bottomleft',imperial:false}).addTo(map);
 
-// ========== GEOJSON LAYER ==========
-function getStyle(feature) {
-  const code = feature.properties.code;
-  const isCA = feature.properties.isCA;
-  const isHighlighted = (code === highlightedCode);
-  return {
-    fillColor: ALL_COLORS[code] || '#333',
-    fillOpacity: isCA ? (isHighlighted ? 0.65 : 0.45) : (isHighlighted ? 0.45 : 0.25),
-    color: isHighlighted ? '#fff' : (isCA ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)'),
-    weight: isHighlighted ? 2.5 : (isCA ? 1.5 : 0.8),
-  };
+// ===== NEIGHBORS (static — same in all eras) =====
+function renderNeighbors() {
+  if (neighborLayer) map.removeLayer(neighborLayer);
+  neighborLabels.forEach(m => map.removeLayer(m));
+  neighborLabels = [];
+
+  const features = Object.entries(GEODATA.neighbors).map(([code, geom]) => ({
+    type: 'Feature',
+    properties: { code },
+    geometry: geom
+  }));
+
+  neighborLayer = L.geoJSON({type:'FeatureCollection',features}, {
+    style: f => {
+      const s = NEIGHBOR_STYLES[f.properties.code];
+      return {
+        fillColor: s ? s.fill : '#222',
+        fillOpacity: 0.6,
+        color: '#4a5568',
+        weight: 1.5
+      };
+    },
+    interactive: false,
+    renderer: L.svg()
+  }).addTo(map);
+
+  // Neighbor labels
+  Object.entries(NEIGHBOR_STYLES).forEach(([code, s]) => {
+    const pos = NEIGHBOR_LABEL_POS[code];
+    if (!pos) return;
+    let displayName = s.name;
+    if (currentEra === 1991 && code === 'RU') displayName = 'Russian Federation';
+    const icon = L.divIcon({
+      className: 'entity-label entity-label-neighbor',
+      html: displayName,
+      iconSize: null
+    });
+    const m = L.marker(pos, {icon, interactive:false}).addTo(map);
+    neighborLabels.push(m);
+  });
 }
 
-function onEachFeature(feature, layer) {
-  const code = feature.properties.code;
-  layer.on('mouseover', function() {
-    highlightedCode = code;
-    geoLayer.setStyle(getStyle);
-  });
-  layer.on('mouseout', function() {
-    highlightedCode = null;
-    geoLayer.setStyle(getStyle);
-  });
-  layer.on('click', function() {
-    showInfoPanel(code);
-  });
-}
-
-geoLayer = L.geoJSON(GEO, {
-  style: getStyle,
-  onEachFeature: onEachFeature,
-  renderer: L.svg()
-}).addTo(map);
-
-// ========== INFO PANEL ==========
-function showInfoPanel(code) {
-  const cd = COUNTRY_DATA[code];
-  if (!cd || !cd[currentYear]) return;
-  const data = cd[currentYear];
-  const panel = document.getElementById('info-panel');
-  document.getElementById('info-name').textContent = getCountryDisplayName(code);
-  const sub = document.getElementById('info-subtitle');
-  if (cd.independence && currentYear === 1991) {
-    sub.textContent = 'Independence: ' + cd.independence;
-  } else if (cd.independence) {
-    sub.textContent = 'Independent since ' + cd.independence;
-  } else {
-    sub.textContent = '';
+// ===== CA ENTITIES (change per era) =====
+function getEraEntities(era) {
+  // For 1900, 1920, 1924: use historical data from GEODATA
+  if (GEODATA.historical[era]) {
+    const hist = GEODATA.historical[era];
+    return Object.entries(hist).map(([key, entity]) => ({
+      key,
+      geometry: entity.geometry,
+      color: entity.color,
+      name: entity.name,
+      subtitle: entity.subtitle,
+      center: HIST_LABEL_POS[key] || [42, 64]
+    }));
   }
+  // For 1936, 1991, 2024: use modern geo with era-specific metadata
+  const entDef = ERA_ENTITIES[era];
+  if (!entDef) return [];
+  return Object.entries(entDef).map(([key, ent]) => ({
+    key,
+    geometry: GEODATA.modern[ent.code],
+    color: ent.color,
+    name: ent.name,
+    subtitle: ent.subtitle,
+    center: ent.center
+  }));
+}
+
+function renderCA() {
+  if (caLayer) map.removeLayer(caLayer);
+  entityLabels.forEach(m => map.removeLayer(m));
+  entityLabels = [];
+
+  const entities = getEraEntities(currentEra);
+  const features = entities.map(e => ({
+    type: 'Feature',
+    properties: { key: e.key, color: e.color, name: e.name, subtitle: e.subtitle },
+    geometry: e.geometry
+  }));
+
+  caLayer = L.geoJSON({type:'FeatureCollection',features}, {
+    style: f => ({
+      fillColor: f.properties.color,
+      fillOpacity: f.properties.key === highlightedKey ? 0.65 : 0.5,
+      color: f.properties.key === highlightedKey ? '#fff' : 'rgba(255,255,255,0.35)',
+      weight: f.properties.key === highlightedKey ? 2.5 : 1.5
+    }),
+    onEachFeature: (f, layer) => {
+      layer.on('mouseover', () => {
+        highlightedKey = f.properties.key;
+        caLayer.setStyle(feat => ({
+          fillColor: feat.properties.color,
+          fillOpacity: feat.properties.key === highlightedKey ? 0.65 : 0.5,
+          color: feat.properties.key === highlightedKey ? '#fff' : 'rgba(255,255,255,0.35)',
+          weight: feat.properties.key === highlightedKey ? 2.5 : 1.5
+        }));
+      });
+      layer.on('mouseout', () => {
+        highlightedKey = null;
+        caLayer.setStyle(feat => ({
+          fillColor: feat.properties.color,
+          fillOpacity: 0.5,
+          color: 'rgba(255,255,255,0.35)',
+          weight: 1.5
+        }));
+      });
+      layer.on('click', () => showInfoPanel(f.properties.key));
+    },
+    renderer: L.svg()
+  }).addTo(map);
+
+  // Entity labels
+  entities.forEach(e => {
+    let html = e.name;
+    if (e.subtitle) html += '<span class="sub">' + e.subtitle + '</span>';
+    const icon = L.divIcon({
+      className: 'entity-label entity-label-ca',
+      html,
+      iconSize: null
+    });
+    const m = L.marker(e.center, {icon, interactive:false}).addTo(map);
+    entityLabels.push(m);
+  });
+}
+
+// ===== INFO PANEL =====
+function showInfoPanel(key) {
+  const eraData = INFO_DATA[currentEra];
+  if (!eraData || !eraData[key]) return;
+  const data = eraData[key];
+
+  // Get entity name
+  let name = key;
+  const entities = getEraEntities(currentEra);
+  const ent = entities.find(e => e.key === key);
+  if (ent) name = ent.name;
+
+  const panel = document.getElementById('info-panel');
+  document.getElementById('info-name').textContent = name;
+  document.getElementById('info-subtitle').textContent = ent ? (ent.subtitle || '') : '';
   document.getElementById('info-pop').textContent = data.pop;
   document.getElementById('info-area').textContent = data.area;
   document.getElementById('info-gdp').textContent = data.gdp;
@@ -453,96 +726,65 @@ function closeInfoPanel() {
   document.getElementById('info-panel').classList.remove('visible');
 }
 
-function getCountryDisplayName(code) {
-  const cd = COUNTRY_DATA[code];
-  if (!cd) return code;
-  if (currentYear === 1991 && cd.independence) {
-    return 'Republic of ' + cd.name;
-  }
-  if (currentYear === 1991 && code === 'RU') {
-    return 'Russian Federation';
-  }
-  return cd.name;
-}
-
-// ========== LEGEND ==========
+// ===== LEGEND =====
 function buildLegend() {
   const caDiv = document.getElementById('legend-ca');
   const nbDiv = document.getElementById('legend-neighbors');
+  const caTitle = document.getElementById('legend-ca-title');
   caDiv.innerHTML = '';
   nbDiv.innerHTML = '';
-  Object.keys(CA_COLORS).forEach(code => {
-    const cd = COUNTRY_DATA[code];
+
+  const entities = getEraEntities(currentEra);
+
+  // Set section title based on era
+  if (currentEra <= 1924) caTitle.textContent = 'Political Entities';
+  else if (currentEra === 1936) caTitle.textContent = 'Soviet Republics';
+  else if (currentEra === 1991) caTitle.textContent = 'New Republics';
+  else caTitle.textContent = 'Countries';
+
+  entities.forEach(e => {
     const item = document.createElement('div');
     item.className = 'legend-item';
-    item.innerHTML = '<div class="legend-swatch" style="background:'+CA_COLORS[code]+'"></div>'+cd.name;
+    item.innerHTML = '<div class="legend-swatch" style="background:'+e.color+'"></div><span>'+e.name+'</span>';
     item.addEventListener('click', () => {
-      const c = cd.center;
-      map.flyTo(c, 6, {duration: 1.2});
-      showInfoPanel(code);
+      map.flyTo(e.center, 6, {duration:1.2});
+      showInfoPanel(e.key);
     });
     caDiv.appendChild(item);
   });
-  Object.keys(NEIGHBOR_COLORS).forEach(code => {
-    const cd = COUNTRY_DATA[code];
+
+  Object.entries(NEIGHBOR_STYLES).forEach(([code, s]) => {
     const item = document.createElement('div');
     item.className = 'legend-item';
-    item.innerHTML = '<div class="legend-swatch" style="background:'+NEIGHBOR_COLORS[code]+'"></div>'+cd.name;
+    let dn = s.name;
+    if (currentEra === 1991 && code === 'RU') dn = 'Russian Federation';
+    item.innerHTML = '<div class="legend-swatch" style="background:'+s.fill+'"></div><span>'+dn+'</span>';
     item.addEventListener('click', () => {
-      const c = cd.center;
-      map.flyTo(c, 6, {duration: 1.2});
+      const pos = NEIGHBOR_LABEL_POS[code];
+      if (pos) map.flyTo(pos, 6, {duration:1.2});
     });
     nbDiv.appendChild(item);
   });
 }
-buildLegend();
 
-// ========== WATER LABELS ==========
+// ===== WATER LABELS =====
+const waterMarkers = [];
 WATER_LABELS.forEach(w => {
   const icon = L.divIcon({
-    className: 'water-label ' + w.cls,
-    html: w.name,
-    iconSize: null
+    className:'water-label '+w.cls,
+    html:w.name,
+    iconSize:null
   });
-  L.marker([w.lat, w.lng], {icon, interactive:false}).addTo(map);
+  waterMarkers.push(L.marker([w.lat,w.lng],{icon,interactive:false}).addTo(map));
 });
 
-// ========== COUNTRY LABELS ==========
-function renderCountryLabels() {
-  countryLabels.forEach(m => map.removeLayer(m));
-  countryLabels = [];
-
-  Object.keys(COUNTRY_DATA).forEach(code => {
-    const cd = COUNTRY_DATA[code];
-    const isCA = !!CA_COLORS[code];
-    let labelHtml = getCountryDisplayName(code);
-    if (currentYear === 1991 && cd.independence) {
-      labelHtml += '<span class="sub">Ind. ' + cd.independence + '</span>';
-    }
-    const icon = L.divIcon({
-      className: 'country-label ' + (isCA ? 'country-label-ca' : 'country-label-neighbor'),
-      html: labelHtml,
-      iconSize: null
-    });
-    const marker = L.marker(cd.center, {icon, interactive:false}).addTo(map);
-    countryLabels.push(marker);
-  });
-}
-renderCountryLabels();
-
-// ========== CITIES ==========
-function getCityName(city) {
-  if (currentYear === 1991 && city.name1991) return city.name1991;
-  return city.name;
-}
-
-function tierMinZoom(tier) {
-  if (tier === 'capital') return 0;
-  if (tier === 1) return 5;
-  if (tier === 2) return 6;
-  if (tier === 3) return 7;
-  if (tier === 4) return 8;
-  return 9;
+// ===== CITIES =====
+function tierMinZoom(t) {
+  if (t === 0) return 0; // capital — always visible
+  if (t === 1) return 5;
+  if (t === 2) return 6;
+  if (t === 3) return 7;
+  return 8;
 }
 
 function renderCities() {
@@ -550,96 +792,103 @@ function renderCities() {
   cityMarkers = [];
   const z = map.getZoom();
 
-  CITIES.forEach(city => {
-    if (z < tierMinZoom(city.tier)) return;
-    const isCap = city.tier === 'capital';
-    const displayName = getCityName(city);
+  Object.values(CITIES).forEach(city => {
+    const t = city.tier[currentEra];
+    if (t === undefined || z < tierMinZoom(t)) return;
+    const name = city.names[currentEra] || '';
+    if (!name) return;
+    const isCap = (t === 0);
     const icon = L.divIcon({
-      className: 'city-marker',
-      html: '<div class="city-dot'+(isCap?' capital':'')+'"></div><div class="city-name'+(isCap?' capital-name':'')+'">'+displayName+'</div>',
-      iconSize: [80, 28],
-      iconAnchor: [40, 6]
+      className:'city-marker',
+      html:'<div class="city-dot'+(isCap?' capital':'')+'"></div><div class="city-name'+(isCap?' capital-name':'')+'">'+name+'</div>',
+      iconSize:[90,28],
+      iconAnchor:[45,6]
     });
-    const marker = L.marker([city.lat, city.lng], {icon, interactive:false}).addTo(map);
-    cityMarkers.push(marker);
+    cityMarkers.push(L.marker([city.lat,city.lng],{icon,interactive:false}).addTo(map));
   });
 }
-renderCities();
+
 map.on('zoomend', renderCities);
 
-// ========== TIMELINE ==========
-const slider = document.getElementById('timeline-slider');
+// ===== TIMELINE =====
+const trackEl = document.getElementById('timeline-track');
+const labelsEl = document.getElementById('timeline-labels');
 const yearEl = document.getElementById('timeline-year');
 const eraEl = document.getElementById('timeline-era');
-const tooltipEl = document.getElementById('timeline-tooltip');
+const fillEl = document.getElementById('timeline-fill');
 
-const ACTIVE_YEARS = [1991, 2024];
-const ERA_NAMES = {
-  1991: 'Soviet Dissolution',
-  2024: 'Modern Era'
-};
+// Build dots
+ERAS.forEach((era, i) => {
+  const dot = document.createElement('div');
+  dot.className = 'timeline-dot' + (era === currentEra ? ' active' : '');
+  dot.dataset.era = era;
+  dot.title = era + ' \u2014 ' + ERA_NAMES[era];
+  dot.addEventListener('click', () => switchEra(era));
+  trackEl.appendChild(dot);
 
-function snapToNearest(val) {
-  let closest = ACTIVE_YEARS[0];
-  let minDist = Math.abs(val - closest);
-  ACTIVE_YEARS.forEach(y => {
-    const d = Math.abs(val - y);
-    if (d < minDist) { minDist = d; closest = y; }
-  });
-  return closest;
+  const label = document.createElement('span');
+  label.textContent = era;
+  labelsEl.appendChild(label);
+});
+
+function updateTimelineFill() {
+  const idx = ERAS.indexOf(currentEra);
+  const pct = ERAS.length > 1 ? (idx / (ERAS.length - 1)) * 100 : 0;
+  fillEl.style.width = pct + '%';
 }
 
-slider.addEventListener('input', function() {
-  const raw = parseInt(this.value);
-  const snapped = snapToNearest(raw);
-  const isActive = ACTIVE_YEARS.includes(raw);
+function switchEra(era) {
+  if (era === currentEra) return;
+  currentEra = era;
 
-  yearEl.textContent = raw;
+  // Update dots
+  document.querySelectorAll('.timeline-dot').forEach(d => {
+    d.classList.toggle('active', parseInt(d.dataset.era) === era);
+  });
+  yearEl.textContent = era;
+  eraEl.textContent = ERA_NAMES[era] || '';
+  updateTimelineFill();
 
-  if (!isActive && raw !== snapped) {
-    tooltipEl.classList.add('visible');
-    tooltipEl.textContent = 'Coming soon \\u2014 snap to ' + snapped;
-  } else {
-    tooltipEl.classList.remove('visible');
-  }
-});
-
-slider.addEventListener('change', function() {
-  const raw = parseInt(this.value);
-  const snapped = snapToNearest(raw);
-  this.value = snapped;
-  setYear(snapped);
-});
-
-function setYear(year) {
-  currentYear = year;
-  yearEl.textContent = year;
-  eraEl.textContent = ERA_NAMES[year] || '';
-  tooltipEl.classList.remove('visible');
-
-  // Crossfade: animate opacity
-  const mapPane = document.querySelector('.leaflet-overlay-pane');
-  if (mapPane) {
-    mapPane.style.transition = 'opacity 0.4s ease';
-    mapPane.style.opacity = '0.3';
+  // Fade out, swap, fade in
+  const overlayPane = document.querySelector('.leaflet-overlay-pane');
+  if (overlayPane) {
+    overlayPane.style.opacity = '0';
     setTimeout(() => {
-      renderCountryLabels();
+      renderCA();
+      renderNeighbors();
       renderCities();
+      buildLegend();
       closeInfoPanel();
-      mapPane.style.opacity = '1';
-    }, 400);
+      overlayPane.style.opacity = '1';
+    }, 350);
   } else {
-    renderCountryLabels();
+    renderCA();
+    renderNeighbors();
     renderCities();
+    buildLegend();
     closeInfoPanel();
   }
 }
 
-// ========== HOME BUTTON ==========
-document.getElementById('home-btn').addEventListener('click', function() {
-  map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {duration: 1});
+// Keyboard nav
+document.addEventListener('keydown', e => {
+  const idx = ERAS.indexOf(currentEra);
+  if (e.key === 'ArrowRight' && idx < ERAS.length - 1) switchEra(ERAS[idx + 1]);
+  if (e.key === 'ArrowLeft' && idx > 0) switchEra(ERAS[idx - 1]);
+});
+
+// ===== HOME BUTTON =====
+document.getElementById('home-btn').addEventListener('click', () => {
+  map.flyTo([42.0, 64.0], 5, {duration:1});
   closeInfoPanel();
 });
+
+// ===== INITIAL RENDER =====
+renderNeighbors();
+renderCA();
+renderCities();
+buildLegend();
+updateTimelineFill();
 </script>
 </body>
 </html>'''
@@ -648,6 +897,5 @@ document.getElementById('home-btn').addEventListener('click', function() {
 with open(OUTPUT_PATH, 'w') as f:
     f.write(html)
 
-import os
-size = os.path.getsize(OUTPUT_PATH)
-print(f"HTML written to {OUTPUT_PATH} ({size/1024:.1f} KB)")
+fsize = os.path.getsize(OUTPUT_PATH)
+print(f"HTML written to {OUTPUT_PATH} ({fsize/1024:.1f} KB)")
