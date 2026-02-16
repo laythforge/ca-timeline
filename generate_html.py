@@ -5,8 +5,6 @@ Reads geodata.json and embeds it. ALL writing via Python file I/O.
 """
 import json
 import os
-=======
-import json, os
 ROOT_DIR = os.path.dirname(__file__)
 GEODATA_PATH = os.path.join(ROOT_DIR, "geodata.json")
 OUTPUT_PATH = os.path.join(ROOT_DIR, "central-asia-map.html")
